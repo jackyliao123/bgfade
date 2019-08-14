@@ -38,6 +38,7 @@ void print_usage(char *argv0) {
 			"                               (W,H,X,Y must all integers. W,H must be positive)\n"
 			"  -m, --monitor=MONITOR      use the XRandR output MONITOR as the region.\n"
 			"                               (MONITOR must be a connected output)\n"
+			"  -e, --screen               use the whole X screen as the region\n"
 			"\n"
 			"OPTION: options that apply to groups. These options will specify the behavior of\n"
 			"        a group.\n"
@@ -102,6 +103,14 @@ void print_usage(char *argv0) {
 			"                                 bilinear:\n"
 			"                                     use bilinear interpolation when scaling the\n"
 			"                                     image\n"
+			"  -c, --color=COLOR          use a solid color as an image\n"
+			"                               (COLOR must be a valid Xrender color. Some\n"
+			"                                 example formats are listed below)\n"
+			"                                 rgba:RRRR/GGGG/BBBB/AAAA\n"
+			"                                     where R,G,B,A are hexadecimal digits, in\n"
+			"                                     lower case\n"
+			"                                 #RRGGBB\n"
+			"                                     where R,G,B are hexadecimal digits\n"
 	);
 }
 
@@ -137,13 +146,15 @@ struct target {
 };
 
 struct image_src {
-	char *path;
+	char *desc;
 	void *data;
 	size_t data_len;
 	int width;
 	int height;
 	XImage *image;
 	Picture picture;
+	bool solid_color;
+	bool loaded;
 };
 
 struct image {
@@ -175,11 +186,15 @@ static struct option long_options[] = {
 	{"random", required_argument, 0, 'a'},
 	{"target", required_argument, 0, 't'},
 	{"monitor", required_argument, 0, 'm'},
+	{"screen", no_argument, 0, 'e'},
 
 	// Option
 	{"transform", required_argument, 0, 'x'},
 	{"repeat", optional_argument, 0, 'r'},
 	{"filter", required_argument, 0, 'f'},
+
+	// Image
+	{"color", required_argument, 0, 'c'},
 	{0, 0, 0, 0}
 };
 
@@ -256,7 +271,7 @@ void new_target(int crtc_ind, int w, int h, int x, int y) {
 	}
 }
 
-void new_image(char *path) {
+void new_image(char *desc, bool solid_color) {
 	if(groups.size == 0) {
 		fprintf(stderr, "no groups\n");
 		exit(1);
@@ -268,16 +283,15 @@ void new_image(char *path) {
 
 	for(int i = 0; i < images.size; ++i) {
 		struct image_src *imgsrc = vector_getptr(&images, i);
-		if(strcmp(imgsrc->path, path) == 0) {
+		if(imgsrc->solid_color == solid_color && strcmp(imgsrc->desc, desc) == 0) {
 			img_ind = i;
 		}
 	}
 
 	if(img_ind == -1) {
 		struct image_src *imgsrc = vector_push(&images, NULL);
-		imgsrc->path = copy_str(path);
-		imgsrc->data = NULL;
-		imgsrc->data_len = 0;
+		imgsrc->desc = copy_str(desc);
+		imgsrc->solid_color = solid_color;
 		img_ind = images.size - 1;
 	}
 
@@ -366,39 +380,50 @@ void load_image(Display *display, Drawable drawable, Visual *visual, struct imag
 
 	int n;
 
-	if(src->data == NULL) {
-		src->data = stbi_load(src->path, &src->width, &src->height, &n, 4);
-		if(src->data == NULL) {
-			fprintf(stderr, "image failed to load: %s\n", src->path);
-			exit(1);
-		}
-
-		char *data = (char *) src->data;
-
-		for(size_t y = 0; y < src->height; ++y) {
-			for(size_t x = 0; x < src->width; ++x) {
-				size_t ind = (x + y * src->width) * 4;
-				unsigned char tmp = data[ind];
-				data[ind] = data[ind + 2];
-				data[ind + 2] = tmp;
+	if(!src->loaded) {
+		if(src->solid_color) {
+			XRenderColor color;
+			if(!XRenderParseColor(display, src->desc, &color)) {
+				fprintf(stderr, "failed to parse color: %s\n", src->desc);
+				exit(1);
 			}
+
+			src->picture = XRenderCreateSolidFill(display, &color);
+		} else {
+			src->data = stbi_load(src->desc, &src->width, &src->height, &n, 4);
+			if(src->data == NULL) {
+				fprintf(stderr, "image failed to load: %s\n", src->desc);
+				exit(1);
+			}
+
+			char *data = (char *) src->data;
+
+			for(size_t y = 0; y < src->height; ++y) {
+				for(size_t x = 0; x < src->width; ++x) {
+					size_t ind = (x + y * src->width) * 4;
+					unsigned char tmp = data[ind];
+					data[ind] = data[ind + 2];
+					data[ind + 2] = tmp;
+				}
+			}
+
+			src->image = XCreateImage(display, visual, 32, ZPixmap, 0, (char *) src->data, src->width, src->height, 32, src->width * 4);
+			if(!src->image) {
+				fprintf(stderr, "XCreateImage failed\n");
+				exit(1);
+			}
+
+			Pixmap src_pixmap = XCreatePixmap(display, drawable, src->width, src->height, 32);
+			GC src_gc = XCreateGC(display, src_pixmap, 0, NULL);
+			XPutImage(display, src_pixmap, src_gc, src->image, 0, 0, 0, 0, src->width, src->height);
+			XFreeGC(display, src_gc);
+
+			XRenderPictFormat *src_format = XRenderFindStandardFormat(display, PictStandardARGB32);
+			src->picture = XRenderCreatePicture(display, src_pixmap, src_format, 0, NULL);
+
+			XFreePixmap(display, src_pixmap);
 		}
-
-		src->image = XCreateImage(display, visual, 32, ZPixmap, 0, (char *) src->data, src->width, src->height, 32, src->width * 4);
-		if(!src->image) {
-			fprintf(stderr, "XCreateImage failed\n");
-			exit(1);
-		}
-
-		Pixmap src_pixmap = XCreatePixmap(display, drawable, src->width, src->height, 32);
-		GC src_gc = XCreateGC(display, src_pixmap, 0, NULL);
-		XPutImage(display, src_pixmap, src_gc, src->image, 0, 0, 0, 0, src->width, src->height);
-		XFreeGC(display, src_gc);
-
-		XRenderPictFormat *src_format = XRenderFindStandardFormat(display, PictStandardARGB32);
-		src->picture = XRenderCreatePicture(display, src_pixmap, src_format, 0, NULL);
-
-		XFreePixmap(display, src_pixmap);
+		src->loaded = true;
 	}
 }
 
@@ -448,6 +473,13 @@ int main(int argc, char *argv[]) {
 	}
 	XRRFreeScreenResources(xrr_screen);
 
+	// Get screen size
+	XWindowAttributes root_attr;
+	XGetWindowAttributes(display, root, &root_attr);
+
+	int root_width = root_attr.width;
+	int root_height = root_attr.height;
+
 	// Argument parsing
 	new_group();
 
@@ -455,13 +487,13 @@ int main(int argc, char *argv[]) {
 
 	while(1) {
 		int option_index = 0;
-		int c = getopt_long(argc, argv, "-hs:vd:nt:m:x:r::a:f:", long_options, &option_index);
+		int c = getopt_long(argc, argv, "-hs:vd:nt:m:ex:r::a:f:c:", long_options, &option_index);
 		if(c == -1) {
 			break;
 		}
 		switch(c) {
 			case 1:
-				new_image(optarg);
+				new_image(optarg, false);
 				break;
 			case 's':
 				if(sscanf(optarg, " %d", &fps) != 1 || fps < 0) {
@@ -493,6 +525,9 @@ int main(int argc, char *argv[]) {
 					return 1;
 				}
 				new_target(((struct monitor *) vector_getptr(&outputs, output_ind))->crtc_ind, 0, 0, 0, 0);
+				break;
+			case 'e':
+				new_target(-1, root_width, root_height, 0, 0);
 				break;
 			case 'x':
 				if(strcmp(optarg, "center") == 0)
@@ -549,6 +584,9 @@ int main(int argc, char *argv[]) {
 					fprintf(stderr, "--filter/-f requires one of [\"bilinear\", \"nearest\"], got %s\n", optarg);
 					return 1;
 				}
+				break;
+			case 'c':
+				new_image(optarg, true);
 				break;
 			case '?':
 				fprintf(stderr, "\n");
@@ -647,13 +685,6 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	// Get screen size
-	XWindowAttributes root_attr;
-	XGetWindowAttributes(display, root, &root_attr);
-
-	int root_width = root_attr.width;
-	int root_height = root_attr.height;
-
 	// Source pixmap - the images to be drawn
 	Pixmap src_pixmap = XCreatePixmap(display, root, root_width, root_height, 24);
 
@@ -744,7 +775,7 @@ int main(int argc, char *argv[]) {
 
 			XRenderSetPictureFilter(display, src->picture, filter, 0, 0);
 
-			XRenderComposite(display, PictOpSrc, src->picture, None, src_picture, 0, 0, 0, 0, t->x, t->y, t->width, t->height);
+			XRenderComposite(display, PictOpOver, src->picture, None, src_picture, 0, 0, 0, 0, t->x, t->y, t->width, t->height);
 		}
 	}
 
@@ -780,6 +811,8 @@ int main(int argc, char *argv[]) {
 
 		XClearWindow(display, root);
 		XFlush(display);
+
+		XRenderFreePicture(display, alpha_mask);
 	}
 
 	// Cleanup
@@ -792,11 +825,13 @@ int main(int argc, char *argv[]) {
 
 	for(int i = 0; i < images.size; ++i) {
 		struct image_src *src = vector_getptr(&images, i);
-		free(src->path);
-		if(src->data) {
+		free(src->desc);
+		if(src->loaded) {
 			XRenderFreePicture(display, src->picture);
-			XFree(src->image);
-			stbi_image_free(src->data);
+			if(!src->solid_color) {
+				XFree(src->image);
+				stbi_image_free(src->data);
+			}
 		}
 	}
 	vector_destroy(&images);
