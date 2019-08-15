@@ -2,7 +2,9 @@ This is a command line utility to easily fade Xorg desktop backgrounds
 
 ### Requirements
 - gcc
-- Xlib, libXrender, libXrandr
+- Xlib
+- libXrender (> 0.10)
+- libXrandr (> 1.3)
 - A connection to an X server with the Xrender and Xrandr extensions
 
 ### Building 

@@ -90,14 +90,19 @@ IMAGE_OPTION: options that apply to images. These options must be specified
                                  fill: (default)
                                      scale the image to fill the entire target
                                      while maintaining the aspect ratio
-  -r, --repeat=REPEAT        specifies whether to tile the image to fill the
-                               target when the image is too small to do so by
-                               itself
+  -r, --repeat=REPEAT        specifies what to do when the image is too small to
+                               fill the target
                                (REPEAT must be one of the following)
-                                 y:
-                                     turn repeat on
-                                 n: (default)
-                                     turn repeat off
+                                 none: (default)
+                                     no attempt will be made to fill the target
+                                 normal:
+                                     the image will be tiled to fill the target
+                                 pad:
+                                     the edges of the images will be stretched
+                                     to fill the target
+                                 reflect:
+                                     like "normal", but adjacent tiles of the
+                                     image are mirrored
   -f, --filter=FILTER        specifies which filter to use when scaling images
                                (FILTER must be one of the following)
                                  nearest:

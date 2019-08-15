@@ -4,8 +4,7 @@
 /*
 12345678901234567890123456789012345678901234567890123456789012345678901234567890\n\
 */
-const char *help_txt =
-"\
+const char *help_txt = "\
 Usage: %s [GLOBAL_OPTION] GROUP_DEF [-n GROUP_DEF]...\n\
 \n\
 Randomly chooses images from a list to draw on the X desktop background with\n\
@@ -98,14 +97,19 @@ IMAGE_OPTION: options that apply to images. These options must be specified\n\
                                  fill: (default)\n\
                                      scale the image to fill the entire target\n\
                                      while maintaining the aspect ratio\n\
-  -r, --repeat=REPEAT        specifies whether to tile the image to fill the\n\
-                               target when the image is too small to do so by\n\
-                               itself\n\
+  -r, --repeat=REPEAT        specifies what to do when the image is too small to\n\
+                               fill the target\n\
                                (REPEAT must be one of the following)\n\
-                                 y:\n\
-                                     turn repeat on\n\
-                                 n: (default)\n\
-                                     turn repeat off\n\
+                                 none: (default)\n\
+                                     no attempt will be made to fill the target\n\
+                                 normal:\n\
+                                     the image will be tiled to fill the target\n\
+                                 pad:\n\
+                                     the edges of the images will be stretched\n\
+                                     to fill the target\n\
+                                 reflect:\n\
+                                     like \"normal\", but adjacent tiles of the\n\
+                                     image are mirrored\n\
   -f, --filter=FILTER        specifies which filter to use when scaling images\n\
                                (FILTER must be one of the following)\n\
                                  nearest:\n\

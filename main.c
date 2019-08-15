@@ -37,6 +37,13 @@ enum random_mode {
 	RANDOM_PERMUTE_REUSE,
 };
 
+enum repeat_mode {
+	REPEAT_NONE,
+	REPEAT_NORMAL,
+	REPEAT_PAD,
+	REPEAT_REFLECT,
+};
+
 enum scale_filter {
 	FILTER_NEAREST,
 	FILTER_BILINEAR,
@@ -66,7 +73,7 @@ struct image {
 	int src_ind;
 	enum transform transform;
 	enum scale_filter filter;
-	bool repeat;
+	enum repeat_mode repeat;
 };
 
 struct target_group {
@@ -119,7 +126,7 @@ struct vector outputs;
 struct image image_settings = {
 	.transform = TRANSFORM_FILL,
 	.filter = FILTER_BILINEAR,
-	.repeat = false
+	.repeat = REPEAT_NONE, 
 };
 
 struct target_group group_settings = {
@@ -294,6 +301,7 @@ void load_image(Display *display, Drawable drawable, Visual *visual, struct imag
 			}
 
 			src->picture = XRenderCreateSolidFill(display, &color);
+			src->width = src->height = 1;
 		} else {
 			src->data = stbi_load(src->desc, &src->width, &src->height, &n, 4);
 			if(src->data == NULL) {
@@ -392,7 +400,7 @@ int main(int argc, char *argv[]) {
 
 	while(1) {
 		int option_index = 0;
-		int c = getopt_long(argc, argv, "-hs:vd:ng:m:ex:r::a:f:c:", long_options, &option_index);
+		int c = getopt_long(argc, argv, "-hs:vd:ng:m:ex:r:a:f:c:", long_options, &option_index);
 		if(c == -1) {
 			break;
 		}
@@ -453,12 +461,16 @@ int main(int argc, char *argv[]) {
 				}
 				break;
 			case 'r':
-				if(optarg == NULL || strcmp(optarg, "y") == 0) {
-					image_settings.repeat = true;
-				} else if(strcmp(optarg, "n") == 0) {
-					image_settings.repeat = false;
+				if(strcmp(optarg, "none") == 0) {
+					image_settings.repeat = REPEAT_NONE;
+				} else if(strcmp(optarg, "normal") == 0) {
+					image_settings.repeat = REPEAT_NORMAL;
+				} else if(strcmp(optarg, "pad") == 0) {
+					image_settings.repeat = REPEAT_PAD;
+				} else if(strcmp(optarg, "reflect") == 0) {
+					image_settings.repeat = REPEAT_REFLECT;
 				} else {
-					fprintf(stderr, "--repeat/-r requires one of [\"y\", \"n\"], got %s\n", optarg);
+					fprintf(stderr, "--repeat/-r requires one of [\"none\", \"normal\", \"pad\", \"reflect\"], got %s\n", optarg);
 					return 1;
 				}
 				break;
@@ -624,9 +636,21 @@ int main(int argc, char *argv[]) {
 			load_image(display, root, visual, img);
 			struct image_src *src = vector_getptr(&images, img->src_ind);
 
-			XRenderPictureAttributes src_attr = {
-				.repeat = img->repeat,
-			};
+			XRenderPictureAttributes src_attr;
+			switch(img->repeat) {
+				case REPEAT_NONE:
+					src_attr.repeat = RepeatNone;
+					break;
+				case REPEAT_NORMAL:
+					src_attr.repeat = RepeatNormal;
+					break;
+				case REPEAT_PAD:
+					src_attr.repeat = RepeatPad;
+					break;
+				case REPEAT_REFLECT:
+					src_attr.repeat = RepeatReflect;
+					break;
+			}
 
 			XRenderChangePicture(display, src->picture, CPRepeat, &src_attr);
 
