@@ -10,108 +10,13 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-
 #include "vector.h"
+#include "help_text.h"
 
 #define INITIAL_CAPACITY 16
 
 void print_usage(char *argv0) {
-	fprintf(stderr, "Usage: %s [GLOBAL_OPTION]... [TARGET]... [[OPTION]... [FILE]...]...\n", argv0);
-	fprintf(stderr,
-//			"12345678901234567890123456789012345678901234567890123456789012345678901234567890\n"
-			"\n"
-			"Randomly chooses images from a list to draw on the X desktop background with\n"
-			"smooth fading transitions.\n"
-			"\n"
-			"GLOBAL_OPTION: options that apply to this program in general\n"
-			"  -h, --help                 prints this message\n"
-			"  -s, --fps=FPS              number of intermediary frames per second\n"
-			"                               (must be a non-negative integer)\n"
-			"  -d, --duration=DURATION    number of seconds the transition should take\n"
-			"                               (must be a non-negative float)\n"
-			"\n"
-			"TARGET: create a region on the screen to draw images. This will be appended to\n"
-			"        the list of TARGETs for the current group. If none is specified, all\n"
-			"        XRandR CRTCs will be used.\n"
-			"  -t, --target=WxH+X+Y       specify a region manually by using (X,Y) as\n"
-			"                               the top left corner and W,H as the dimensions.\n"
-			"                               (W,H,X,Y must all integers. W,H must be positive)\n"
-			"  -m, --monitor=MONITOR      use the XRandR output MONITOR as the region.\n"
-			"                               (MONITOR must be a connected output)\n"
-			"  -e, --screen               use the whole X screen as the region\n"
-			"\n"
-			"OPTION: options that apply to groups. These options will specify the behavior of\n"
-			"        a group.\n"
-			"  -n, --new                  create a new group. A group consists of a list of\n"
-			"                               targets and a list of images. Some of the images\n"
-			"                               will be chosen to be drawn on the targets\n"
-			"  -a, --random=RANDOM        specify a randomization mode. This will determine\n"
-			"                               how images will be chosen to get drawn on the\n"
-			"                               targets, in a group\n"
-			"                               (RANDOM must be one of the following)\n"
-			"                                 first:\n"
-			"                                     use the first image in the list to draw\n"
-			"                                     on all targets. This mode is deterministic\n"
-			"                                 seq:\n"
-			"                                     use the i-th image to draw on the i-th\n"
-			"                                     target. This mode is deterministic\n"
-			"                                 permute:\n"
-			"                                     for each target, randomly choose an image\n"
-			"                                     (without repeat) to draw\n"
-			"                                 reuse:\n"
-			"                                     for each target, randomly choose an image\n"
-			"                                     (with repeat) to draw\n"
-			"                                 choose-one:\n"
-			"                                     randomly choose one image to draw on all\n"
-			"                                     targets\n"
-			"                                 permute-reuse:\n"
-			"                                     try to use the \"permute\" mode. If there's\n"
-			"                                     not enough images, use the \"reuse\" mode.\n"
-			"\n"
-			"OPTION: options that apply to images. These options must be specified before\n"
-			"        the images they are meant for\n"
-			"  -x, --transform=TRANSFORM  specify how images should be scaled in regards\n"
-			"                               with their chosen targets\n"
-			"                               (TRANSFORM must be one of the following)\n"
-			"                                 center:\n"
-			"                                     center the image with no scaling\n"
-			"                                 stretch:\n"
-			"                                     fill the target with the image, matching\n"
-			"                                     both width and height and ignoring the\n"
-			"                                     aspect ratio of the image\n"
-			"                                 match-width:\n"
-			"                                     scale the image to match the width of the\n"
-			"                                     target, while maintaining the aspect ratio\n"
-			"                                 match-height:\n"
-			"                                     scale the image to match the height of the\n"
-			"                                     target, while maintaining the aspect ratio\n"
-			"                                 fit:\n"
-			"                                     scale the image to fit inside the target\n"
-			"                                     while maintaining the aspect ratio\n"
-			"                                 fill:\n"
-			"                                     scale the image to fill the entire target\n"
-			"                                     while maintaining the aspect ratio\n"
-			"  -r, --repeat=REPEAT        specifies whether to tile the image to fill the\n"
-			"                               target when the image is too small to do so by\n"
-			"                               itself\n"
-			"                               (REPEAT can optionally be one of [\"yes\", \"no\"].\n"
-			"                                if none is specified, \"yes\" will be used)\n"
-			"  -f, --filter=FILTER        specifies which filter to use when scaling images\n"
-			"                               (FILTER must be one of the following)\n"
-			"                                 nearest:\n"
-			"                                     use nearest neighbor when scaling the image\n"
-			"                                 bilinear:\n"
-			"                                     use bilinear interpolation when scaling the\n"
-			"                                     image\n"
-			"  -c, --color=COLOR          use a solid color as an image\n"
-			"                               (COLOR must be a valid Xrender color. Some\n"
-			"                                 example formats are listed below)\n"
-			"                                 rgba:RRRR/GGGG/BBBB/AAAA\n"
-			"                                     where R,G,B,A are hexadecimal digits, in\n"
-			"                                     lower case\n"
-			"                                 #RRGGBB\n"
-			"                                     where R,G,B are hexadecimal digits\n"
-	);
+	fprintf(stderr, help_txt, argv0);
 }
 
 enum transform {
@@ -184,13 +89,13 @@ static struct option long_options[] = {
 	// Group
 	{"new", no_argument, 0, 'n'},
 	{"random", required_argument, 0, 'a'},
-	{"target", required_argument, 0, 't'},
+	{"region", required_argument, 0, 'g'},
 	{"monitor", required_argument, 0, 'm'},
 	{"screen", no_argument, 0, 'e'},
 
 	// Option
 	{"transform", required_argument, 0, 'x'},
-	{"repeat", optional_argument, 0, 'r'},
+	{"repeat", required_argument, 0, 'r'},
 	{"filter", required_argument, 0, 'f'},
 
 	// Image
@@ -198,7 +103,7 @@ static struct option long_options[] = {
 	{0, 0, 0, 0}
 };
 
-int fps = 60;
+double fps = 60;
 double duration = 1;
 
 // struct image_src
@@ -487,7 +392,7 @@ int main(int argc, char *argv[]) {
 
 	while(1) {
 		int option_index = 0;
-		int c = getopt_long(argc, argv, "-hs:vd:nt:m:ex:r::a:f:c:", long_options, &option_index);
+		int c = getopt_long(argc, argv, "-hs:vd:ng:m:ex:r::a:f:c:", long_options, &option_index);
 		if(c == -1) {
 			break;
 		}
@@ -496,14 +401,14 @@ int main(int argc, char *argv[]) {
 				new_image(optarg, false);
 				break;
 			case 's':
-				if(sscanf(optarg, " %d", &fps) != 1 || fps < 0) {
-					fprintf(stderr, "--fps/-s requires a non-negative integer, got: %s\n", optarg);
+				if(sscanf(optarg, " %lf", &fps) != 1 || fps < 0) {
+					fprintf(stderr, "--fps/-s requires a non-negative float, got: %s\n", optarg);
 					return 1;
 				}
 				break;
 			case 'd':
 				if(sscanf(optarg, " %lf", &duration) != 1 || duration < 0) {
-					fprintf(stderr, "--duration/-d requires non-negative float, got: %s\n", optarg);
+					fprintf(stderr, "--duration/-d requires a non-negative float, got: %s\n", optarg);
 					return 1;
 				}
 				break;
@@ -511,9 +416,9 @@ int main(int argc, char *argv[]) {
 				finalize_group();
 				new_group();
 				break;
-			case 't':
+			case 'g':
 				if(sscanf(optarg, " %dx%d%d%d", &w, &h, &x, &y) != 4 || w <= 0 || h <= 0) {
-					fprintf(stderr, "--target/-t requires integers with width and height positive, got %s\n", optarg);
+					fprintf(stderr, "--region/-g requires integers with width and height positive, got %s\n", optarg);
 					return 1;
 				}
 				new_target(-1, w, h, x, y);
@@ -548,12 +453,12 @@ int main(int argc, char *argv[]) {
 				}
 				break;
 			case 'r':
-				if(optarg == NULL || strcmp(optarg, "on") == 0) {
+				if(optarg == NULL || strcmp(optarg, "y") == 0) {
 					image_settings.repeat = true;
-				} else if(strcmp(optarg, "off") == 0) {
+				} else if(strcmp(optarg, "n") == 0) {
 					image_settings.repeat = false;
 				} else {
-					fprintf(stderr, "--repeat/-r optionally requires one of [\"yes\", \"no\"], got %s\n", optarg);
+					fprintf(stderr, "--repeat/-r requires one of [\"y\", \"n\"], got %s\n", optarg);
 					return 1;
 				}
 				break;

@@ -1,0 +1,124 @@
+Usage: %s [GLOBAL_OPTION] GROUP_DEF [-n GROUP_DEF]...
+
+Randomly chooses images from a list to draw on the X desktop background with
+smooth fading transitions.
+
+GLOBAL_OPTION: options that apply to this program in general
+
+  -h, --help                 prints this message
+  -s, --fps=FPS              number of intermediary frames per second
+                               (must be a non-negative float)
+                               default: 60.0
+  -d, --duration=DURATION    number of seconds the transition should take
+                               (must be a non-negative float)
+                               default: 1.0
+
+
+GROUP_DEF: arguments that define a group. A group consists of a list of targets,
+    a list of images, and a randomization method for choosing which images to
+    draw on the targets. For each group, use the following format:
+
+GROUP_DEF := [GROUP_OPTION]... [TARGET]... [[IMAGE_OPTION]... IMAGE]...
+
+    options specified in GROUP_OPTION will affect the current and all
+        subsequent groups
+    options specified in IMAGE_OPTION will affect all subsequent images,
+        including images specified in subsequent groups
+
+  -n, --new                  create a new group. Used as a group separator
+
+
+GROUP_OPTION: options that apply to groups
+
+  -a, --random=RANDOM        specify a randomization mode. This will determine
+                               how images will be chosen to get drawn on the
+                               targets in a group
+                               (RANDOM must be one of the following)
+                                 first:
+                                     use the first image in the list to draw
+                                     on all targets. This mode is deterministic
+                                 seq:
+                                     use the i-th image to draw on the i-th
+                                     target. This mode is deterministic
+                                 permute:
+                                     for each target, randomly choose an image
+                                     (without reuse) to draw
+                                 reuse:
+                                     for each target, randomly choose an image
+                                     (allowing reuse) to draw
+                                 choose-one:
+                                     randomly choose one image to draw on all
+                                     targets
+                                 permute-reuse: (default)
+                                     try to use the "permute" mode. If there's
+                                     not enough images, use the "reuse" mode.
+
+
+TARGET: specify a region on the X screen to draw images. Each entry will be
+    be added to the list of targets in the current group. If none are specified,
+    all XRandR CRTCs will be used as the list of target.
+
+  -g, --region=WxH+X+Y       specify a region manually by using (X,Y) as
+                               the top left corner and W,H as the dimensions.
+                               (W,H,X,Y must all integers. W,H must be positive)
+  -m, --monitor=MONITOR      use the XRandR output MONITOR as the region.
+                               (MONITOR must be a connected output)
+  -e, --screen               use the whole X screen as the region
+
+
+IMAGE_OPTION: options that apply to images. These options must be specified
+    before the images they are meant for
+
+  -x, --transform=XFORM      specify how images should be scaled in regards
+                               with their chosen targets
+                               (XFORM must be one of the following)
+                                 center:
+                                     center the image with no scaling
+                                 stretch:
+                                     fill the target with the image, matching
+                                     both width and height and ignoring the
+                                     aspect ratio of the image
+                                 match-width:
+                                     scale the image to match the width of the
+                                     target, while maintaining the aspect ratio
+                                 match-height:
+                                     scale the image to match the height of the
+                                     target, while maintaining the aspect ratio
+                                 fit:
+                                     scale the image to fit inside the target
+                                     while maintaining the aspect ratio
+                                 fill: (default)
+                                     scale the image to fill the entire target
+                                     while maintaining the aspect ratio
+  -r, --repeat=REPEAT        specifies whether to tile the image to fill the
+                               target when the image is too small to do so by
+                               itself
+                               (REPEAT must be one of the following)
+                                 y:
+                                     turn repeat on
+                                 n: (default)
+                                     turn repeat off
+  -f, --filter=FILTER        specifies which filter to use when scaling images
+                               (FILTER must be one of the following)
+                                 nearest:
+                                     use nearest neighbor when scaling the image
+                                 bilinear: (default)
+                                     use bilinear interpolation when scaling the
+                                     image
+
+
+IMAGE: specify a candidate image. Each entry will be added to the list of images
+    in the current group. At least one image must be specified.
+
+  IMAGE_PATH                 use an image file specified by IMAGE_PATH. Supports
+                               a subset of JPEG, PNG, TGA, BMP, PSD, GIF, HDR,
+                               PIC and PNM formats.
+
+  -c, --color=COLOR          use a solid color as an image
+                               (COLOR must be a valid Xrender color. Some
+                                example formats are listed below)
+                                 #RRGGBB
+                                     where R,G,B are hexadecimal digits
+                                 rgba:RRRR/GGGG/BBBB/AAAA
+                                     where R,G,B,A are hexadecimal digits, in
+                                     lowercase
