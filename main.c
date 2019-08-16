@@ -70,6 +70,7 @@ struct image_src {
 };
 
 struct image {
+	XRenderColor bgclr;
 	int src_ind;
 	enum transform transform;
 	enum scale_filter filter;
@@ -104,6 +105,7 @@ static struct option long_options[] = {
 	{"transform", required_argument, 0, 'x'},
 	{"repeat", required_argument, 0, 'r'},
 	{"filter", required_argument, 0, 'f'},
+	{"bg", required_argument, 0, 'b'},
 
 	// Image
 	{"color", required_argument, 0, 'c'},
@@ -126,7 +128,7 @@ struct vector outputs;
 struct image image_settings = {
 	.transform = TRANSFORM_FILL,
 	.filter = FILTER_BILINEAR,
-	.repeat = REPEAT_NONE, 
+	.repeat = REPEAT_NONE,
 };
 
 struct target_group group_settings = {
@@ -212,6 +214,7 @@ void new_image(char *desc, bool solid_color) {
 	img->transform = image_settings.transform;
 	img->filter = image_settings.filter;
 	img->repeat = image_settings.repeat;
+	img->bgclr = image_settings.bgclr;
 }
 
 int add_crtc(int w, int h, int x, int y) {
@@ -287,6 +290,13 @@ void shuffle(struct vector *v) {
 	}
 }
 
+void parse_color(Display *display, char *clr, XRenderColor *out) {
+	if(!XRenderParseColor(display, clr, out)) {
+		fprintf(stderr, "failed to parse color: %s\n", clr);
+		exit(1);
+	}
+}
+
 void load_image(Display *display, Drawable drawable, Visual *visual, struct image *img) {
 	struct image_src *src = vector_getptr(&images, img->src_ind);
 
@@ -295,10 +305,7 @@ void load_image(Display *display, Drawable drawable, Visual *visual, struct imag
 	if(!src->loaded) {
 		if(src->solid_color) {
 			XRenderColor color;
-			if(!XRenderParseColor(display, src->desc, &color)) {
-				fprintf(stderr, "failed to parse color: %s\n", src->desc);
-				exit(1);
-			}
+			parse_color(display, src->desc, &color);
 
 			src->picture = XRenderCreateSolidFill(display, &color);
 			src->width = src->height = 1;
@@ -400,7 +407,7 @@ int main(int argc, char *argv[]) {
 
 	while(1) {
 		int option_index = 0;
-		int c = getopt_long(argc, argv, "-hs:vd:ng:m:ex:r:a:f:c:", long_options, &option_index);
+		int c = getopt_long(argc, argv, "-hs:vd:ng:m:ex:r:a:f:b:c:", long_options, &option_index);
 		if(c == -1) {
 			break;
 		}
@@ -501,6 +508,9 @@ int main(int argc, char *argv[]) {
 					fprintf(stderr, "--filter/-f requires one of [\"bilinear\", \"nearest\"], got %s\n", optarg);
 					return 1;
 				}
+				break;
+			case 'b':
+				parse_color(display, optarg, &image_settings.bgclr);
 				break;
 			case 'c':
 				new_image(optarg, true);
@@ -703,6 +713,8 @@ int main(int argc, char *argv[]) {
 			}
 
 			XRenderSetPictureFilter(display, src->picture, filter, 0, 0);
+
+			XRenderFillRectangle(display, PictOpOver, src_picture, &img->bgclr, t->x, t->y, t->width, t->height);
 
 			XRenderComposite(display, PictOpOver, src->picture, None, src_picture, 0, 0, 0, 0, t->x, t->y, t->width, t->height);
 		}
