@@ -112,8 +112,8 @@ IMAGE_OPTION: options that apply to images. These options must be specified
                                      image
   -b, --bg=COLOR             fill the target with COLOR first before drawing
                                this image. Useful for drawing images with alpha
-							   channels.
-							   (COLOR must be a valid Xrender color. See below)
+                               channels.
+                               (COLOR must be a valid Xrender color. See below)
 
 
 IMAGE: specify a candidate image. Each entry will be added to the list of images

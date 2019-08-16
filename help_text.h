@@ -117,6 +117,10 @@ IMAGE_OPTION: options that apply to images. These options must be specified\n\
                                  bilinear: (default)\n\
                                      use bilinear interpolation when scaling the\n\
                                      image\n\
+  -b, --bg=COLOR             fill the target with COLOR first before drawing\n\
+                               this image. Useful for drawing images with alpha\n\
+                               channels.\n\
+                               (COLOR must be a valid Xrender color. See below)\n\
 \n\
 \n\
 IMAGE: specify a candidate image. Each entry will be added to the list of images\n\
@@ -124,16 +128,17 @@ IMAGE: specify a candidate image. Each entry will be added to the list of images
 \n\
   IMAGE_PATH                 use an image file specified by IMAGE_PATH. Supports\n\
                                a subset of JPEG, PNG, TGA, BMP, PSD, GIF, HDR,\n\
-                               PIC and PNM formats.\n\
+                               PIC and PNM formats. Details are in stb_image.h.\n\
 \n\
   -c, --color=COLOR          use a solid color as an image\n\
-                               (COLOR must be a valid Xrender color. Some\n\
-                                example formats are listed below)\n\
-                                 #RRGGBB\n\
-                                     where R,G,B are hexadecimal digits\n\
-                                 rgba:RRRR/GGGG/BBBB/AAAA\n\
-                                     where R,G,B,A are hexadecimal digits, in\n\
-                                     lowercase\n\
+                               (COLOR must be a valid Xrender color. See below) \n\
+\n\
+\n\
+COLOR: a colour in Xrender color format. Some example formats:\n\
+  #RRGGBB\n\
+      where R,G,B are hexadecimal digits\n\
+  rgba:RR/GG/BB/AA\n\
+      where R,G,B,A are hexadecimal digits, in lowercase\n\
 ";
 
 #endif

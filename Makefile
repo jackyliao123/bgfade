@@ -2,14 +2,14 @@ CC=gcc
 CFLAGS=-Wall
 LDFLAGS=-lX11 -lXrender -lXrandr -lm
 
-TARGET=bgfade
-OBJ=vector.o main.o
+bgfade: main.o vector.o
+	$(CC) -o $@ $^ $(LDFLAGS)
 
-%.o: %.c
+main.o: main.c stb_image.h help_text.h vector.h
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-$(TARGET): $(OBJ)
-	$(CC) -o $@ $^ $(LDFLAGS)
+vector.o: vector.c vector.h
+	$(CC) -c -o $@ $< $(CFLAGS)
 
 .PHONY: clean
 
