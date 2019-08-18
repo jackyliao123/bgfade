@@ -582,34 +582,27 @@ int main(int argc, char *argv[]) {
 	Atom prop_rootpmap = XInternAtom(display, "_XROOTPMAP_ID", True);
 	Atom prop_esetroot = XInternAtom(display, "ESETROOT_PMAP_ID", True);
 
-	if(prop_rootpmap == None || prop_esetroot == None) {
-		fprintf(stderr, "XInterAtom failed\n");
-		return 1;
-	}
-
 	Pixmap pre_pixmap = None;
 
-	if(prop_rootpmap != None) {
-		Atom type;
-		int format;
-		unsigned long length, bytes_after;
-		unsigned char *data_prop = 0;
+	Atom type;
+	int format;
+	unsigned long length, bytes_after;
+	unsigned char *data_prop = 0;
 
-		if(XGetWindowProperty(display, root, prop_rootpmap, 0, 1, False, AnyPropertyType, &type, &format, &length, &bytes_after, &data_prop) == Success) {
-			if(type == XA_PIXMAP) {
+	if(prop_rootpmap != None && XGetWindowProperty(display, root, prop_rootpmap, 0, 1, False, AnyPropertyType, &type, &format, &length, &bytes_after, &data_prop) == Success) {
+		if(type == XA_PIXMAP) {
+			pre_pixmap = *(Pixmap *) data_prop;
+		}
+		XFree(data_prop);
+	}
+
+	if(prop_esetroot != None && XGetWindowProperty(display, root, prop_esetroot, 0, 1, False, AnyPropertyType, &type, &format, &length, &bytes_after, &data_prop) == Success) {
+		if(type == XA_PIXMAP) {
+			if(pre_pixmap == None) {
 				pre_pixmap = *(Pixmap *) data_prop;
 			}
-			XFree(data_prop);
 		}
-
-		if(XGetWindowProperty(display, root, prop_esetroot, 0, 1, False, AnyPropertyType, &type, &format, &length, &bytes_after, &data_prop) == Success) {
-			if(type == XA_PIXMAP) {
-				if(pre_pixmap == None) {
-					pre_pixmap = *(Pixmap *) data_prop;
-				}
-			}
-			XFree(data_prop);
-		}
+		XFree(data_prop);
 	}
 
 	// Source pixmap - the images to be drawn
@@ -621,11 +614,16 @@ int main(int argc, char *argv[]) {
 	// Xrender
 	XRenderPictFormat *xrender_format = XRenderFindStandardFormat(display, PictStandardRGB24);
 
-	XRenderPictureAttributes attr = {
-		.repeat = 1, // repeat previous desktop background, for display reconfigurations
-	};
-
-	Picture pre_picture = XRenderCreatePicture(display, pre_pixmap, xrender_format, CPRepeat, &attr);
+	Picture pre_picture;
+	if(pre_pixmap == None) {
+		XRenderColor color = {};
+		pre_picture = XRenderCreateSolidFill(display, &color);
+	} else {
+		XRenderPictureAttributes attr = {
+			.repeat = 1, // repeat previous desktop background, for display reconfigurations
+		};
+		pre_picture = XRenderCreatePicture(display, pre_pixmap, xrender_format, CPRepeat, &attr);
+	}
 	Picture src_picture = XRenderCreatePicture(display, src_pixmap, xrender_format, 0, NULL);
 	Picture dst_picture = XRenderCreatePicture(display, dst_pixmap, xrender_format, 0, NULL);
 
